@@ -53,7 +53,7 @@ public class ShopController {
     //@Cacheable(value = "shop", key = "#id")
     public Result queryShopById(@PathVariable("id") Long id) {
 
-        Shop shop = cacheClient.queryShopWithLogical("shop:", id, Shop.class,shopService::getById, "lock:shop", 30L, TimeUnit.MINUTES);
+        Shop shop = cacheClient.queryObjectWithLogical("shop:", id, Shop.class,shopService::getById, "lock:shop", 30L, TimeUnit.MINUTES);
 
         //Shop shop = cacheClient.queryWithPassThrough("shop:", id, Shop.class, shopService::getById, 30L, TimeUnit.MINUTES);
 
