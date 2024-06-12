@@ -1513,6 +1513,8 @@ public Result queryShopById(@PathVariable("id") Long id) {
 
 ![image-20240603103437141](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240603103437141.png)
 
+逻辑过期方案：用户查询某个热门产品信息，如果缓存未命中(即信息为空)，则直接返回空，不去查询数据库。如果缓存信息命中，则判断是否逻辑过期，未过期返回缓存信息，过期则重建缓存，尝试获得互斥锁，获取失败则直接返回已过期缓存数据，获取成功则开启独立线程去重构缓存然后直接返回旧的缓存信息，重构完成之后就释放互斥锁。
+
 
 
 **工具类：**
@@ -2115,7 +2117,11 @@ boolean b = iSeckillVoucherService.update()
 
  ***this的seckillVoucher是没有事务控制的，会导致createVoucherOrder的@Transactional不生效*** 
 
-***这么做要在pom中加aspectjrt依赖，并在启动类中加上@EnableAspectJAutoProxy(exposeProxy = true)***
+***这么做要在pom中加aspectjrt依赖：***
+
+<dependency>    <groupId>org.aspectj</groupId>    <artifactId>aspectjweaver</artifactId>    <version>1.8.7</version> </dependency>
+
+***，并在启动类中加上@EnableAspectJAutoProxy(exposeProxy = true)***
 
  ***使之暴露出代理对象，然后才能获取到***
 
@@ -2197,7 +2203,15 @@ public class VoucherOrderController {
         //@Transactional事务控制生效是因为spring对当前类做了动态代理
         //AopContext.currentProxy()是为了拿到代理对象，不然createVoucherOrder方法的调用默认是this
         //this的seckillVoucher是没有事务控制的，会导致createVoucherOrder的@Transactional不生效
-        //这么做要在pom中加aspectjrt依赖，并在启动类中加上@EnableAspectJAutoProxy(exposeProxy = true)
+        //这么做要在pom中加aspectjrt依赖：
+        /*
+        <dependency>
+    		<groupId>org.aspectj</groupId>
+    		<artifactId>aspectjweaver</artifactId>
+    		<version>1.8.7</version>
+		</dependency>
+        */
+        //并在启动类中加上@EnableAspectJAutoProxy(exposeProxy = true)
         //使之暴露出代理对象，然后才能获取到
         synchronized (userId.toString().intern()) {
             VoucherOrderController proxy = (VoucherOrderController) AopContext.currentProxy();
@@ -2271,7 +2285,7 @@ public class VoucherOrderController {
 
 ![image-20240604165723476](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240604165723476.png)
 
-![image-20240604170117863](./assets/image-20240604170117863.png)
+![image-20240604170117863](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240604170117863.png)
 
 
 
@@ -2279,13 +2293,601 @@ public class VoucherOrderController {
 
 ### 4.4.2 基于 Redis 的分布式锁
 
-![image-20240604171343247](./assets/image-20240604171343247.png)
+![image-20240604171343247](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240604171343247.png)
 
 阻塞：会导致 cpu 一部分浪费而且有点麻烦
 
 
 
-![image-20240604171428262](./assets/image-20240604171428262.png)
+![image-20240605100635077](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605100635077.png)
+
+
+
+**分布式锁工具类：**
+
+```java
+package com.hmdp.utils;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
+
+import java.util.concurrent.TimeUnit;
+
+public class SimpleRedisLock implements ILock{
+    private String name;
+
+    private static final String KEY_PRE = "lock:";
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    public SimpleRedisLock(String name, StringRedisTemplate stringRedisTemplate) {
+        this.name = name;
+        this.stringRedisTemplate = stringRedisTemplate;
+    }
+
+    @Override
+    public boolean tryLock(long timeoutSec) {
+        long threadId = Thread.currentThread().getId();
+
+        Boolean flag = stringRedisTemplate.opsForValue()
+                .setIfAbsent(KEY_PRE + name, threadId + "", timeoutSec, TimeUnit.SECONDS);
+
+        return Boolean.TRUE.equals(flag);
+    }
+
+    @Override
+    public void unlock() {
+        stringRedisTemplate.delete(KEY_PRE + name);
+    }
+}
+```
+
+
+
+**业务代码：**
+
+```java
+SimpleRedisLock simpleRedisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+
+if (!simpleRedisLock.tryLock(1200)) {
+    return Result.fail("不允许重复下单，请稍后再试");
+}
+try {
+    VoucherOrderController proxy = (VoucherOrderController) AopContext.currentProxy();
+    return proxy.createVoucherOrder(voucherId, seckillVoucher, userId);
+}catch (Exception e){
+    return Result.fail("抢卷失败，请稍后再试");
+}
+finally {
+    simpleRedisLock.unlock();
+}
+```
+
+
+
+
+
+#### 4.4.2.1 误删问题
+
+![image-20240605101031753](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605101031753.png)
+
+由于业务阻塞导致锁超时，锁自动释放，其他线程获取锁之后被前一个线程删锁。
+
+
+
+解决办法：
+
+![image-20240605101236579](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605101236579.png)
+
+![image-20240605101306330](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605101306330.png)
+
+
+
+#### 4.4.2.2 改进基于 Redis 的分布式锁
+
+![image-20240605101356162](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605101356162.png)
+
+
+
+**工具类代码：**
+
+```java
+package com.hmdp.utils;
+
+import cn.hutool.core.lang.UUID;
+import org.springframework.data.redis.core.StringRedisTemplate;
+
+import java.util.concurrent.TimeUnit;
+
+public class SimpleRedisLock implements ILock{
+    private String name;
+
+    private static final String KEY_PRE = "lock:";
+    private static final String ID_PRE = UUID.randomUUID().toString(true) + "-";
+
+    private final StringRedisTemplate stringRedisTemplate;
+
+    public SimpleRedisLock(String name, StringRedisTemplate stringRedisTemplate) {
+        this.name = name;
+        this.stringRedisTemplate = stringRedisTemplate;
+    }
+
+    @Override
+    public boolean tryLock(long timeoutSec) {
+        String threadId = ID_PRE + Thread.currentThread().getId();
+
+        Boolean flag = stringRedisTemplate.opsForValue()
+                .setIfAbsent(KEY_PRE + name, threadId + "", timeoutSec, TimeUnit.SECONDS);
+
+        return Boolean.TRUE.equals(flag);
+    }
+
+    @Override
+    public void unlock() {
+        String threadId = ID_PRE + Thread.currentThread().getId();
+
+        String id = stringRedisTemplate.opsForValue().get(KEY_PRE + name);
+
+        if (threadId.equals(id)) {
+            stringRedisTemplate.delete(KEY_PRE + name);
+        }
+    }
+}
+```
+
+
+
+#### 4.4.2.3 分布式锁原子性问题
+
+![image-20240605104957898](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605104957898.png)
+
+由于判断和释放锁不是原子性的，所以可能会导致判断完了被阻塞然后过期删掉别人的锁的问题
+
+
+
+
+
+#### 4.4.2.4 使用 Lua 脚本解决分布式锁原子性问题
+
+![image-20240605105546326](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605105546326.png)
+
+ ![image-20240605110345949](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605110345949.png)
+
+![image-20240605135450434](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240605135450434.png)
+
+
+
+**工具类代码：**
+
+```java
+public void unlock(){
+    stringRedisTemplate.execute(
+            UNLOCK_LUA_SCRIPT,
+            Collections.singletonList(KEY_PRE + name),
+            ID_PRE + Thread.currentThread().getId());
+
+}
+```
+
+
+
+截至 4.4.2.4 分布式锁已经可以投入生产
+
+![image-20240606094126562](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240606094126562.png)
+
+
+
+
+
+### 4.4.3 基于 Redis 的分布式锁优化
+
+![image-20240606094456024](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240606094456024.png)
+
+大多数情况下不理会上述问题也够用了
+
+
+
+#### 4.4.3.1 Redisson 简介
+
+![image-20240612094448824](./assets/image-20240612094448824.png)
+
+![image-20240606094750979](./assets/image-20240606094750979.png)
+
+生产下一般不会手搓，用这个框架就够了
+
+
+
+
+
+#### 4.4.3.2 Redisson 快速入门
+
+![image-20240606094853916](./assets/image-20240606094853916.png)
+
+![image-20240606095106952](./assets/image-20240606095106952.png)
+
+获取的是可重入锁
+
+1 --- 获取锁最大等待时间
+
+10 --- 自动释放锁时间
+
+
+
+
+
+#### 4.4.3.3 Redisson 可重入锁原理
+
+![image-20240611155957718](./assets/image-20240611155957718.png)
+
+![image-20240611160020980](./assets/image-20240611160020980.png)
+
+![image-20240611160230119](./assets/image-20240611160230119.png)
+
+
+
+
+
+#### 4.4.3.4 Redisson 的锁重试和 WatchDog 机制
+
+![image-20240611160928830](./assets/image-20240611160928830.png)
+
+![image-20240611162802294](./assets/image-20240611162802294.png)
+
+这部分没看明白
+
+https://www.bilibili.com/video/BV1cr4y1671t/?p=67&spm_id_from=pageDriver&vd_source=542979c6bdb106fd23293c7648d31688
+
+
+
+
+
+#### 4.4.3.5 Redisson 的 multiLock 原理（解决主从一致性问题）
+
+![image-20240611163337998](./assets/image-20240611163337998.png)
+
+主从节点不是必要的，只有线程同时获取全部锁才能真正获取锁
+
+![image-20240612093201342](./assets/image-20240612093201342.png)
+
+在 redisson 中配置节点后这样使用就行
+
+
+
+https://www.bilibili.com/video/BV1cr4y1671t/?p=68&spm_id_from=pageDriver&vd_source=542979c6bdb106fd23293c7648d31688
+
+
+
+
+
+## 4.5 电商秒杀问题优化
+
+### 4.5.1 阻塞队列实现异步秒杀
+
+![image-20240612152815887](./assets/image-20240612152815887.png)
+
+之前秒杀业务都要串行走完整个业务，其中减库存和创建订单都要走数据库，性能受限，现在将判断秒杀库存和检验一人一单独立到 redis 而写数据库操作在独立线程里完成，能提高性能
+
+![image-20240612095935744](./assets/image-20240612095935744.png)
+
+![image-20240612101603850](./assets/image-20240612101603850.png)
+
+库存使用的 String ，用户 id 使用 setnx 集合
+
+
+
+![image-20240612102327439](./assets/image-20240612102327439.png)
+
+
+
+1. 
+
+```java
+@Override
+@Transactional
+public void addSeckillVoucher(Voucher voucher) {
+    // 保存优惠券
+    save(voucher);
+    // 保存秒杀信息
+    SeckillVoucher seckillVoucher = new SeckillVoucher();
+    seckillVoucher.setVoucherId(voucher.getId());
+    seckillVoucher.setStock(voucher.getStock());
+    seckillVoucher.setBeginTime(voucher.getBeginTime());
+    seckillVoucher.setEndTime(voucher.getEndTime());
+    seckillVoucherService.save(seckillVoucher);
+
+    // 保存库存信息到redis
+    stringRedisTemplate.opsForValue().set("seckill:stock:" + voucher.getId(), voucher.getStock().toString());
+}
+```
+
+
+
+2. 
+
+```lua
+-- 1. 参数列表
+-- 1.1 优惠价id
+local voucherId = ARGV[1]
+--1.2 用户id
+local userId = ARGV[2]
+
+-- 2. 数据key
+-- 2.1 库存key拼接
+local stockKey = 'seckill:stock:' .. voucherId
+-- 2.2 订单id
+local orderKey = 'seckill:order:' .. voucherId
+
+-- 3. 脚本业务
+-- 3.1 判断库存是否充足 redis.call 出来的是 String 用 tonumber 转数字
+if (tonumber(redis.call('get', stockKey)) <= 0) then
+    return 1
+end
+-- 3.2 判断用户是否下单
+if (redis.call('sismember', orderKey, userId) == 1) then
+    -- 3.3 存在 返回2
+    return 2
+end
+-- 3.4 扣库存
+redis.call('incrby', stockKey, -1)
+-- 3.5 下单（保存用户）
+redis.call('sadd', orderKey, userId)
+
+return 0
+```
+
+
+
+3. 
+
+```java
+private VoucherOrderController proxy;
+@PostMapping("seckill/{id}")
+public Result seckillVoucher(@PathVariable("id") Long voucherId) {
+    //1. 执行lua脚本
+    Long userId = UserHolder.getUser().getId();
+    Long result = stringRedisTemplate.execute(
+            SECKILL_LUA_SCRIPT,
+            Collections.emptyList(),
+            voucherId.toString(), userId.toString()
+    );
+
+    //2. 判断lua脚本结果
+    if(result == 1L){
+        return Result.fail("秒杀失败，库存不足");
+    }
+    if(result == 2L){
+        return Result.fail("秒杀失败，不可重复下单");
+    }
+
+    //2.1 为0，把下单信息加到阻塞队列
+    long orderId = redisIdWorker.getId("order");
+    VoucherOrder voucherOrder = new VoucherOrder();
+    voucherOrder.setId(orderId);
+    voucherOrder.setVoucherId(voucherId);
+    voucherOrder.setUserId(userId);
+
+    orderTasks.add(voucherOrder);
+
+    //在主线程拿到代理对象
+    proxy = (VoucherOrderController) AopContext.currentProxy();
+
+    //3. 返回订单id
+    return Result.ok(orderId);
+}
+```
+
+
+
+4. 
+
+```java
+package com.hmdp.controller;
+
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hmdp.dto.Result;
+import com.hmdp.entity.VoucherOrder;
+import com.hmdp.service.ISeckillVoucherService;
+import com.hmdp.service.IVoucherOrderService;
+import com.hmdp.service.IVoucherService;
+import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.aop.framework.AopContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.annotation.PostConstruct;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * <p>
+ *  前端控制器
+ * </p>
+ *
+ * @author 虎哥
+ * @since 2021-12-22
+ */
+@Slf4j
+@RestController
+@RequestMapping("/voucher-order")
+public class VoucherOrderController {
+
+    @Autowired
+    private IVoucherService iVoucherService;
+
+    @Autowired
+    private ISeckillVoucherService iSeckillVoucherService;
+
+    @Autowired
+    private RedisIdWorker redisIdWorker;
+
+    @Autowired
+    private IVoucherOrderService voucherOrderService;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
+    // 用于存放下单信息的阻塞队列，如果队列中没有对象就会被阻塞，直到有对象可以取出
+    private final BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024*1024);
+    //线程池
+    private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
+
+    //注解意思是在类初始化完成后就执行下面的方法
+    @PostConstruct
+    private void init(){
+        SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
+    }
+
+    //线程任务
+    private class VoucherOrderHandler implements Runnable{
+
+        @Override
+        public void run() {
+            while(true){
+                try {
+                    //1. 获取队列中的订单信息
+                    VoucherOrder voucherOrder = orderTasks.take();
+
+                    //2. 创建订单
+                    handleVoucherOrder(voucherOrder);
+
+                } catch (Exception e) {
+                    log.info("处理订单异常：{}", e.getMessage());
+                }
+
+            }
+        }
+    }
+
+
+    private static final DefaultRedisScript<Long> SECKILL_LUA_SCRIPT;
+    static {
+        SECKILL_LUA_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_LUA_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
+        SECKILL_LUA_SCRIPT.setResultType(Long.class);
+    }
+
+
+
+
+    private VoucherOrderController proxy;
+    @PostMapping("seckill/{id}")
+    public Result seckillVoucher(@PathVariable("id") Long voucherId) {
+        //1. 执行lua脚本
+        Long userId = UserHolder.getUser().getId();
+        Long result = stringRedisTemplate.execute(
+                SECKILL_LUA_SCRIPT,
+                Collections.emptyList(),
+                voucherId.toString(), userId.toString()
+        );
+
+        //2. 判断lua脚本结果
+        if(result == 1L){
+            return Result.fail("秒杀失败，库存不足");
+        }
+        if(result == 2L){
+            return Result.fail("秒杀失败，不可重复下单");
+        }
+
+        //2.1 为0，把下单信息加到阻塞队列
+        long orderId = redisIdWorker.getId("order");
+        VoucherOrder voucherOrder = new VoucherOrder();
+        voucherOrder.setId(orderId);
+        voucherOrder.setVoucherId(voucherId);
+        voucherOrder.setUserId(userId);
+
+        orderTasks.add(voucherOrder);
+
+        //在主线程拿到代理对象
+        proxy = (VoucherOrderController) AopContext.currentProxy();
+
+        //3. 返回订单id
+        return Result.ok(orderId);
+    }
+
+    
+    @Transactional
+    public void createVoucherOrder(long voucherId, long userId) {
+            //一人一单
+            LambdaQueryWrapper<VoucherOrder> lambdaQueryWrapper1 = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper1.eq(VoucherOrder::getUserId, userId);
+
+            List<VoucherOrder> voucherOrders = voucherOrderService.list(lambdaQueryWrapper1);
+
+            if (!voucherOrders.isEmpty()) {
+                log.info("用户已经下过单了");
+                return;
+            }
+
+
+            // 扣库存
+            boolean b = iSeckillVoucherService.update()
+                    .setSql("stock = stock - 1")
+                    .eq("voucher_id", voucherId)
+                    .gt("stock", 0)
+                    .update();
+
+            if (!b) {
+                log.info("抢卷失败，库存不足");
+                return;
+            }
+
+            VoucherOrder voucherOrder = new VoucherOrder();
+            long orderId = redisIdWorker.getId("voucher_order");
+            voucherOrder.setId(orderId);
+            voucherOrder.setVoucherId(voucherId);
+            voucherOrder.setUserId(userId);
+
+            voucherOrderService.save(voucherOrder);
+
+    }
+
+
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
+        //因为现在是多线程，没办法从UserHolder拿id
+        Long userId = voucherOrder.getUserId();
+
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+
+        if (!lock.tryLock()) {
+            log.info("不允许重复下单");
+            return;
+        }
+        try {
+            //没办法在这里从AopContext.currentProxy()拿代理对象，因为这个方法是基于ThreadLocal做的
+            //VoucherOrderController proxy = (VoucherOrderController) AopContext.currentProxy();
+            proxy.createVoucherOrder(voucherOrder.getVoucherId(), userId);
+        }catch (Exception e){
+            log.info("抢卷失败，请稍后再试");
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+}
+
+```
+
+​	流程是初始化类的时候执行 init() 方法，在线程池里取线程不断循环获取消息队列里的订单信息，一但获取，异步执行handleVoucherOrder() 方法（虽然handleVoucherOrder() 里对重复下单的判断几乎不需要，只是为了做个兜底）。
+
+​	handleVoucherOrder() 执行时获取成员变量 proxy 获取代理对象，以事务管理执行 createVoucherOrder() 方法，正式在数据库中写入数据。
 
 
 
@@ -2293,55 +2895,43 @@ public class VoucherOrderController {
 
 
 
+### 4.5.2 消息队列实现异步秒杀
+
+### 4.6.1 认识消息队列
+
+![image-20240612153859959](./assets/image-20240612153859959.png)
+
+
+
+### 4.6.2 基于 Redis 的 List 的消息队列
+
+![image-20240612154117706](./assets/image-20240612154117706.png)
+
+![image-20240612154427650](./assets/image-20240612154427650.png)
+
+
+
+### 4.6.3 基于 Redis 的 PubSub 的消息队列
+
+![image-20240612155422242](./assets/image-20240612155422242.png)
+
+![image-20240612155654048](./assets/image-20240612155654048.png)
 
 
 
 
 
+### 4.6.4 基于 Redis 的 Stream 的消息队列
 
+![image-20240612160947852](./assets/image-20240612160947852.png)
 
+查看消息队列中消息条数：XLEN key
 
+![image-20240612161211634](./assets/image-20240612161211634.png)
 
+$：从最新消息开始读
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Stream 数据类型是可以被多个消费者、同一个消费者重复读取，也就是说具有持久化特性
 
 
 
