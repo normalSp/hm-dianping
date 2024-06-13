@@ -1,6 +1,9 @@
 package com.hmdp.controller;
 
 
+import cn.hutool.core.util.BooleanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
@@ -10,10 +13,17 @@ import com.hmdp.service.IBlogService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
+import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -27,10 +37,14 @@ import java.util.List;
 @RequestMapping("/blog")
 public class BlogController {
 
+    private static final String LIKE_KEY = "blog:like:";
+
     @Resource
     private IBlogService blogService;
     @Resource
     private IUserService userService;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @PostMapping
     public Result saveBlog(@RequestBody Blog blog) {
@@ -45,9 +59,45 @@ public class BlogController {
 
     @PutMapping("/like/{id}")
     public Result likeBlog(@PathVariable("id") Long id) {
-        // 修改点赞数量
-        blogService.update()
-                .setSql("liked = liked + 1").eq("id", id).update();
+        String key = LIKE_KEY + id;
+        //1. 获取当前登录用户
+        Long userId = UserHolder.getUser().getId();
+
+        //2. 判断当前用户是否点赞
+        Double member = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+
+        //3. 如果未点赞
+        if(member == null) {
+            //3.1 数据库点赞数+1
+            LambdaUpdateWrapper<Blog> lambdaUpdateWrapper =  new LambdaUpdateWrapper<>();
+            lambdaUpdateWrapper.eq(Blog::getId, id);
+            Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+            blog.setLiked(blog.getLiked() + 1);
+
+            boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+            if(BooleanUtil.isTrue(ifSuccess)){
+                //3.2 保存用户到redis集合
+                stringRedisTemplate.opsForZSet().add(LIKE_KEY + id, userId.toString(), System.currentTimeMillis());
+            }
+        }else {
+            //4. 如果已点赞，取消点赞
+            //4.1 数据库点赞数-1
+            LambdaUpdateWrapper<Blog> lambdaUpdateWrapper = new LambdaUpdateWrapper<>();
+            lambdaUpdateWrapper.eq(Blog::getId, id);
+            Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+            blog.setLiked(blog.getLiked() - 1);
+
+            boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+            if (BooleanUtil.isTrue(ifSuccess)) {
+                //4.2 redis集合删除用户
+                stringRedisTemplate.opsForZSet().remove(LIKE_KEY + id, userId.toString());
+            }
+
+        }
         return Result.ok();
     }
 
@@ -77,7 +127,81 @@ public class BlogController {
             User user = userService.getById(userId);
             blog.setName(user.getNickName());
             blog.setIcon(user.getIcon());
+
+            isBlogBeLike(blog);
         });
         return Result.ok(records);
     }
+
+
+    @Transactional
+    @GetMapping("/{id}")
+    public Result queryBlogById(@PathVariable Long id){
+        LambdaQueryWrapper<Blog> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Blog::getId, id);
+        Blog blog = blogService.getOne(lambdaQueryWrapper);
+
+        if (blog == null) {
+            return Result.fail("博文不存在");
+        }
+
+        User user = userService.getById(blog.getUserId());
+        blog.setName(user.getNickName());
+        blog.setIcon(user.getIcon());
+
+        isBlogBeLike(blog);
+
+        return Result.ok(blog);
+    }
+
+    private void isBlogBeLike(Blog blog) {
+        String key = LIKE_KEY + blog.getId();
+        //1. 获取当前登录用户
+        UserDTO user = UserHolder.getUser();
+
+        if(user == null){
+            return;
+        }
+
+        Long userId = user.getId();
+
+        //2. 判断当前用户是否点赞
+        Double member = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+
+        blog.setIsLike(member != null);
+    }
+
+
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable Long id){
+        Set<String> range = stringRedisTemplate.opsForZSet().range(LIKE_KEY + id, 0, 4);
+
+        if (range == null || range.isEmpty()) {
+            return Result.ok();
+        }
+
+        List<Long> collect = range.stream().map(Long::valueOf).collect(Collectors.toList());
+
+
+        //因为直接用listById查的sql用的是in，导致用户是按id排序展示的，所以用query拼接字符串自定义排序
+        //where id in (5, 1) order by field(id, 5 ,1)
+        List<User> users = userService.query().
+                in("id", collect).
+                last("ORDER BY FIELD(id," +
+                        collect.stream().map(Object::toString).collect(Collectors.joining(","))
+                        + ")")
+                .list();
+
+        List<UserDTO> userDTOS = new ArrayList<>();
+
+        for(User user : users){
+            UserDTO userDTO = new UserDTO();
+            BeanUtils.copyProperties(user, userDTO);
+
+            userDTOS.add(userDTO);
+        }
+
+        return Result.ok(userDTOS);
+    }
+
 }

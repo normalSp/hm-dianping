@@ -2488,9 +2488,9 @@ public void unlock(){
 
 #### 4.4.3.1 Redisson 简介
 
-![image-20240612094448824](./assets/image-20240612094448824.png)
+![image-20240612094448824](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612094448824.png)
 
-![image-20240606094750979](./assets/image-20240606094750979.png)
+![image-20240606094750979](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240606094750979.png)
 
 生产下一般不会手搓，用这个框架就够了
 
@@ -2500,9 +2500,9 @@ public void unlock(){
 
 #### 4.4.3.2 Redisson 快速入门
 
-![image-20240606094853916](./assets/image-20240606094853916.png)
+![image-20240606094853916](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240606094853916.png)
 
-![image-20240606095106952](./assets/image-20240606095106952.png)
+![image-20240606095106952](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240606095106952.png)
 
 获取的是可重入锁
 
@@ -2516,11 +2516,11 @@ public void unlock(){
 
 #### 4.4.3.3 Redisson 可重入锁原理
 
-![image-20240611155957718](./assets/image-20240611155957718.png)
+![image-20240611155957718](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611155957718.png)
 
-![image-20240611160020980](./assets/image-20240611160020980.png)
+![image-20240611160020980](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611160020980.png)
 
-![image-20240611160230119](./assets/image-20240611160230119.png)
+![image-20240611160230119](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611160230119.png)
 
 
 
@@ -2528,9 +2528,9 @@ public void unlock(){
 
 #### 4.4.3.4 Redisson 的锁重试和 WatchDog 机制
 
-![image-20240611160928830](./assets/image-20240611160928830.png)
+![image-20240611160928830](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611160928830.png)
 
-![image-20240611162802294](./assets/image-20240611162802294.png)
+![image-20240611162802294](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611162802294.png)
 
 这部分没看明白
 
@@ -2542,11 +2542,11 @@ https://www.bilibili.com/video/BV1cr4y1671t/?p=67&spm_id_from=pageDriver&vd_sour
 
 #### 4.4.3.5 Redisson 的 multiLock 原理（解决主从一致性问题）
 
-![image-20240611163337998](./assets/image-20240611163337998.png)
+![image-20240611163337998](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240611163337998.png)
 
 主从节点不是必要的，只有线程同时获取全部锁才能真正获取锁
 
-![image-20240612093201342](./assets/image-20240612093201342.png)
+![image-20240612093201342](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612093201342.png)
 
 在 redisson 中配置节点后这样使用就行
 
@@ -2562,19 +2562,19 @@ https://www.bilibili.com/video/BV1cr4y1671t/?p=68&spm_id_from=pageDriver&vd_sour
 
 ### 4.5.1 阻塞队列实现异步秒杀
 
-![image-20240612152815887](./assets/image-20240612152815887.png)
+![image-20240612152815887](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612152815887.png)
 
 之前秒杀业务都要串行走完整个业务，其中减库存和创建订单都要走数据库，性能受限，现在将判断秒杀库存和检验一人一单独立到 redis 而写数据库操作在独立线程里完成，能提高性能
 
-![image-20240612095935744](./assets/image-20240612095935744.png)
+![image-20240612095935744](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612095935744.png)
 
-![image-20240612101603850](./assets/image-20240612101603850.png)
+![image-20240612101603850](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612101603850.png)
 
 库存使用的 String ，用户 id 使用 setnx 集合
 
 
 
-![image-20240612102327439](./assets/image-20240612102327439.png)
+![image-20240612102327439](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612102327439.png)
 
 
 
@@ -2897,41 +2897,928 @@ public class VoucherOrderController {
 
 ### 4.5.2 消息队列实现异步秒杀
 
-### 4.6.1 认识消息队列
+### 4.5.1 认识消息队列
 
-![image-20240612153859959](./assets/image-20240612153859959.png)
+![image-20240612153859959](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612153859959.png)
 
-
-
-### 4.6.2 基于 Redis 的 List 的消息队列
-
-![image-20240612154117706](./assets/image-20240612154117706.png)
-
-![image-20240612154427650](./assets/image-20240612154427650.png)
+![image-20240613094441614](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094441614.png)
 
 
 
-### 4.6.3 基于 Redis 的 PubSub 的消息队列
+### 4.5.2 基于 Redis 的 List 的消息队列
 
-![image-20240612155422242](./assets/image-20240612155422242.png)
+![image-20240612154117706](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612154117706.png)
 
-![image-20240612155654048](./assets/image-20240612155654048.png)
-
-
+![image-20240612154427650](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612154427650.png)
 
 
 
-### 4.6.4 基于 Redis 的 Stream 的消息队列
+### 4.5.3 基于 Redis 的 PubSub 的消息队列
 
-![image-20240612160947852](./assets/image-20240612160947852.png)
+![image-20240612155422242](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612155422242.png)
+
+![image-20240612155654048](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612155654048.png)
+
+
+
+
+
+### 4.5.4 基于 Redis 的 Stream 的消息队列
+
+#### 4.5.4.1 单消费模式
+
+![image-20240612160947852](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612160947852.png)
 
 查看消息队列中消息条数：XLEN key
 
-![image-20240612161211634](./assets/image-20240612161211634.png)
+![image-20240612162406714](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612162406714.png)
 
 $：从最新消息开始读
 
 Stream 数据类型是可以被多个消费者、同一个消费者重复读取，也就是说具有持久化特性
+
+
+
+![image-20240612162504873](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612162504873.png)
+
+![image-20240612162620511](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612162620511.png)
+
+
+
+#### 4.5.4.2 消费者组模式
+
+![image-20240612163943720](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612163943720.png)
+
+![image-20240612164214698](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612164214698.png)
+
+ ![image-20240612164616420](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240612164616420.png)
+
+![image-20240613093539276](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613093539276.png)
+
+
+
+创建 group 的时候一定要注意 key 是否存在，不存在会报错，就是要 xadd 之后才能 xgroup
+
+详情见：https://www.cnblogs.com/liconglong/p/14248810.html#_label3_0
+
+
+
+![image-20240613094233383](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094233383.png)
+
+![image-20240613094306741](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094306741.png)
+
+
+
+
+
+#### 4.5.4.3 Java 代码实现 Stream 结构的消息队列
+
+![image-20240613094756542](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094756542.png)
+
+
+
+1. 
+
+![image-20240613094943659](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094943659.png)
+
+
+
+2. 
+
+```lua
+-- 1. 参数列表
+-- 1.1 优惠价id
+local voucherId = ARGV[1]
+--1.2 用户id
+local userId = ARGV[2]
+-- 1.3 订单id
+local orderId = ARGV[3]
+
+-- 2. 数据key
+-- 2.1 库存key拼接
+local stockKey = 'seckill:stock:' .. voucherId
+-- 2.2 订单id
+local orderKey = 'seckill:order:' .. voucherId
+
+-- 3. 脚本业务
+-- 3.1 判断库存是否充足 redis.call 出来的是 String 用 tonumber 转数字
+if (tonumber(redis.call('get', stockKey)) <= 0) then
+    return 1
+end
+-- 3.2 判断用户是否下单
+if (redis.call('sismember', orderKey, userId) == 1) then
+    -- 3.3 存在 返回2
+    return 2
+end
+-- 3.4 扣库存
+redis.call('incrby', stockKey, -1)
+-- 3.5 下单（保存用户）
+redis.call('sadd', orderKey, userId)
+-- 3.6 发送消息进消息队列中
+redis.call('xadd', 'stream.orders', '*', 'userId', userId, 'voucherId', voucherId, 'id', orderId)
+
+return 0
+```
+
+
+
+```java
+private VoucherOrderController proxy;
+@PostMapping("seckill/{id}")
+public Result seckillVoucher(@PathVariable("id") Long voucherId) {
+    //1. 执行lua脚本
+    long orderId = redisIdWorker.getId("order");
+
+    Long userId = UserHolder.getUser().getId();
+    Long result = stringRedisTemplate.execute(
+            SECKILL_LUA_SCRIPT,
+            Collections.emptyList(),
+            voucherId.toString(), userId.toString(), String.valueOf(orderId)
+    );
+
+    //2. 判断lua脚本结果
+    if(result == 1L){
+        return Result.fail("秒杀失败，库存不足");
+    }
+    if(result == 2L){
+        return Result.fail("秒杀失败，不可重复下单");
+    }
+
+    //在主线程拿到代理对象
+    proxy = (VoucherOrderController) AopContext.currentProxy();
+
+    //3. 返回订单id
+    return Result.ok(orderId);
+}
+```
+
+
+
+3. 
+
+```java
+//线程任务
+private class VoucherOrderHandler implements Runnable{
+    String queueName = "stream.orders";
+    @Override
+    public void run() {
+        while(true){
+            try {
+                //1. 获取消息队列中的订单信息 XREADGROUP GROUP g1 c1 COUNT 1 BLOCK 2000 STREAMS stream.orders >
+                List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
+                        Consumer.from("g1", "c1"),
+                        StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
+                        StreamOffset.create(queueName, ReadOffset.lastConsumed())
+                );
+
+                //2. 判断消息获取是否成功
+                if(list == null || list.isEmpty()){
+                    continue;
+                }
+
+                //3. 获取成功，创建订单
+                MapRecord<String, Object, Object> entries = list.get(0);
+                Map<Object, Object> value = entries.getValue();
+                VoucherOrder voucherOrder = BeanUtil.fillBeanWithMap(value, new VoucherOrder(), true);
+                handleVoucherOrder(voucherOrder);
+
+                //4. ACK 确认 XACK stream.orders g1 id
+                stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", entries.getId());
+
+            } catch (Exception e) {
+                log.info("处理订单异常：{}", e.getMessage());
+
+                //handlePendingList();
+            }
+
+        }
+    }
+    private void handlePendingList() {
+        while (true){
+            try {
+                //1. 获取pending-list中的订单信息 XREADGROUP GROUP g1 c1 COUNT 1 STREAMS stream.orders 0
+                List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
+                        Consumer.from("g1", "c1"),
+                        StreamReadOptions.empty().count(1),
+                        StreamOffset.create(queueName, ReadOffset.from("0"))
+                );
+
+                //2. 判断消息获取是否成功
+                if(list == null || list.isEmpty()){
+                    break;
+                }
+
+                //3. 获取成功，创建订单
+                MapRecord<String, Object, Object> entries = list.get(0);
+                Map<Object, Object> value = entries.getValue();
+                VoucherOrder voucherOrder = BeanUtil.fillBeanWithMap(value, new VoucherOrder(), true);
+                handleVoucherOrder(voucherOrder);
+
+                //4. ACK 确认 XACK stream.orders g1 id
+                stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", entries.getId());
+
+            } catch (Exception e) {
+                log.info("处理pending-list异常：{}", e.getMessage());
+
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+**完整控制类代码：**
+
+```java
+package com.hmdp.controller;
+
+
+import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hmdp.dto.Result;
+import com.hmdp.entity.VoucherOrder;
+import com.hmdp.service.ISeckillVoucherService;
+import com.hmdp.service.IVoucherOrderService;
+import com.hmdp.service.IVoucherService;
+import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.aop.framework.AopContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.annotation.PostConstruct;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * <p>
+ *  前端控制器
+ * </p>
+ *
+ * @author 虎哥
+ * @since 2021-12-22
+ */
+@Slf4j
+@RestController
+@RequestMapping("/voucher-order")
+public class VoucherOrderController {
+
+    @Autowired
+    private IVoucherService iVoucherService;
+
+    @Autowired
+    private ISeckillVoucherService iSeckillVoucherService;
+
+    @Autowired
+    private RedisIdWorker redisIdWorker;
+
+    @Autowired
+    private IVoucherOrderService voucherOrderService;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
+    // 用于存放下单信息的阻塞队列，如果队列中没有对象就会被阻塞，直到有对象可以取出
+    private final BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024*1024);
+    //线程池
+    private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
+
+    //注解意思是在类初始化完成后就执行下面的方法
+    @PostConstruct
+    private void init(){
+        SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
+    }
+
+    //线程任务
+    private class VoucherOrderHandler implements Runnable{
+        String queueName = "stream.orders";
+        @Override
+        public void run() {
+            while(true){
+                try {
+                    //1. 获取消息队列中的订单信息 XREADGROUP GROUP g1 c1 COUNT 1 BLOCK 2000 STREAMS stream.orders >
+                    List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
+                            Consumer.from("g1", "c1"),
+                            StreamReadOptions.empty().count(1).block(Duration.ofSeconds(2)),
+                            StreamOffset.create(queueName, ReadOffset.lastConsumed())
+                    );
+
+                    //2. 判断消息获取是否成功
+                    if(list == null || list.isEmpty()){
+                        continue;
+                    }
+
+                    //3. 获取成功，创建订单
+                    MapRecord<String, Object, Object> entries = list.get(0);
+                    Map<Object, Object> value = entries.getValue();
+                    VoucherOrder voucherOrder = BeanUtil.fillBeanWithMap(value, new VoucherOrder(), true);
+                    handleVoucherOrder(voucherOrder);
+
+                    //4. ACK 确认 XACK stream.orders g1 id
+                    stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", entries.getId());
+
+                } catch (Exception e) {
+                    log.info("处理订单异常：{}", e.getMessage());
+
+                    //handlePendingList();
+                }
+
+            }
+        }
+        private void handlePendingList() {
+            while (true){
+                try {
+                    //1. 获取pending-list中的订单信息 XREADGROUP GROUP g1 c1 COUNT 1 STREAMS stream.orders 0
+                    List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
+                            Consumer.from("g1", "c1"),
+                            StreamReadOptions.empty().count(1),
+                            StreamOffset.create(queueName, ReadOffset.from("0"))
+                    );
+
+                    //2. 判断消息获取是否成功
+                    if(list == null || list.isEmpty()){
+                        break;
+                    }
+
+                    //3. 获取成功，创建订单
+                    MapRecord<String, Object, Object> entries = list.get(0);
+                    Map<Object, Object> value = entries.getValue();
+                    VoucherOrder voucherOrder = BeanUtil.fillBeanWithMap(value, new VoucherOrder(), true);
+                    handleVoucherOrder(voucherOrder);
+
+                    //4. ACK 确认 XACK stream.orders g1 id
+                    stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", entries.getId());
+
+                } catch (Exception e) {
+                    log.info("处理pending-list异常：{}", e.getMessage());
+
+                    try {
+                        Thread.sleep(20);
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+            }
+        }
+    }
+
+
+
+    private static final DefaultRedisScript<Long> SECKILL_LUA_SCRIPT;
+    static {
+        SECKILL_LUA_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_LUA_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
+        SECKILL_LUA_SCRIPT.setResultType(Long.class);
+    }
+
+
+
+
+    private VoucherOrderController proxy;
+    @PostMapping("seckill/{id}")
+    public Result seckillVoucher(@PathVariable("id") Long voucherId) {
+        //在主线程拿到代理对象
+        proxy = (VoucherOrderController) AopContext.currentProxy();
+
+        //1. 执行lua脚本
+        long orderId = redisIdWorker.getId("order");
+
+        Long userId = UserHolder.getUser().getId();
+        Long result = stringRedisTemplate.execute(
+                SECKILL_LUA_SCRIPT,
+                Collections.emptyList(),
+                voucherId.toString(), userId.toString(), String.valueOf(orderId)
+        );
+
+        //2. 判断lua脚本结果
+        if(result == 1L){
+            return Result.fail("秒杀失败，库存不足");
+        }
+        if(result == 2L){
+            return Result.fail("秒杀失败，不可重复下单");
+        }
+
+
+        //3. 返回订单id
+        return Result.ok(orderId);
+    }
+
+
+    @Transactional
+    public void createVoucherOrder(long voucherId, long userId) {
+            //一人一单
+            LambdaQueryWrapper<VoucherOrder> lambdaQueryWrapper1 = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper1.eq(VoucherOrder::getUserId, userId);
+
+            List<VoucherOrder> voucherOrders = voucherOrderService.list(lambdaQueryWrapper1);
+
+            if (!voucherOrders.isEmpty()) {
+                log.info("用户已经下过单了");
+                return;
+            }
+
+
+            // 扣库存
+            boolean b = iSeckillVoucherService.update()
+                    .setSql("stock = stock - 1")
+                    .eq("voucher_id", voucherId)
+                    .gt("stock", 0)
+                    .update();
+
+            if (!b) {
+                log.info("抢卷失败，库存不足");
+                return;
+            }
+
+            VoucherOrder voucherOrder = new VoucherOrder();
+            long orderId = redisIdWorker.getId("voucher_order");
+            voucherOrder.setId(orderId);
+            voucherOrder.setVoucherId(voucherId);
+            voucherOrder.setUserId(userId);
+
+            voucherOrderService.save(voucherOrder);
+
+    }
+
+
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
+        //因为现在是多线程，没办法从UserHolder拿id
+        Long userId = voucherOrder.getUserId();
+
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+
+        if (!lock.tryLock()) {
+            log.info("不允许重复下单");
+            return;
+        }
+        try {
+            //没办法在这里从AopContext.currentProxy()拿代理对象，因为这个方法是基于ThreadLocal做的
+            //VoucherOrderController proxy = (VoucherOrderController) AopContext.currentProxy();
+            proxy.createVoucherOrder(voucherOrder.getVoucherId(), userId);
+        }catch (Exception e){
+            log.info("抢卷失败，请稍后再试");
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+
+
+
+
+
+
+## 4.6 达人探店
+
+### 4.6.1 点赞功能实现
+
+![image-20240613135752640](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613135752640.png)
+
+![image-20240613142026194](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613142026194.png)
+
+![image-20240613150519366](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613150519366.png)
+
+
+
+1. 
+
+```java
+/**
+ * 是否点赞过了
+ */
+@TableField(exist = false)
+private Boolean isLike;
+```
+
+
+
+2. 
+
+```java
+@PutMapping("/like/{id}")
+public Result likeBlog(@PathVariable("id") Long id) {
+    //1. 获取当前登录用户
+    Long userId = UserHolder.getUser().getId();
+
+    //2. 判断当前用户是否点赞
+    Boolean member = stringRedisTemplate.opsForSet().isMember(LIKE_KEY + id, userId.toString());
+
+    //3. 如果未点赞
+    if(BooleanUtil.isFalse(member)) {
+        //3.1 数据库点赞数+1
+        LambdaUpdateWrapper<Blog> lambdaUpdateWrapper =  new LambdaUpdateWrapper<>();
+        lambdaUpdateWrapper.eq(Blog::getId, id);
+        Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+        blog.setLiked(blog.getLiked() + 1);
+
+        boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+        if(BooleanUtil.isTrue(ifSuccess)){
+            //3.2 保存用户到redis集合
+            stringRedisTemplate.opsForSet().add(LIKE_KEY + id, userId.toString());
+        }
+    }else {
+        //4. 如果已点赞，取消点赞
+        //4.1 数据库点赞数-1
+        LambdaUpdateWrapper<Blog> lambdaUpdateWrapper = new LambdaUpdateWrapper<>();
+        lambdaUpdateWrapper.eq(Blog::getId, id);
+        Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+        blog.setLiked(blog.getLiked() - 1);
+
+        boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+        if (BooleanUtil.isTrue(ifSuccess)) {
+            //4.2 redis集合删除用户
+            stringRedisTemplate.opsForSet().remove(LIKE_KEY + id, userId.toString());
+        }
+
+    }
+    return Result.ok();
+}
+```
+
+
+
+3. 
+
+```java
+@Transactional
+@GetMapping("/{id}")
+public Result queryBlogById(@PathVariable Long id){
+    LambdaQueryWrapper<Blog> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+    lambdaQueryWrapper.eq(Blog::getId, id);
+    Blog blog = blogService.getOne(lambdaQueryWrapper);
+
+    if (blog == null) {
+        return Result.fail("博文不存在");
+    }
+
+    User user = userService.getById(blog.getUserId());
+    blog.setName(user.getNickName());
+    blog.setIcon(user.getIcon());
+
+    isBlogBeLike(blog);
+
+    return Result.ok(blog);
+}
+```
+
+```java
+private void isBlogBeLike(Blog blog) {
+    //1. 获取当前登录用户
+    Long userId = UserHolder.getUser().getId();
+
+    //2. 判断当前用户是否点赞
+    Boolean member = stringRedisTemplate.opsForSet().isMember(LIKE_KEY + blog.getId(), userId.toString());
+
+    blog.setIsLike(BooleanUtil.isTrue(member));
+}
+```
+
+
+
+4. 
+
+```java
+@GetMapping("/hot")
+public Result queryHotBlog(@RequestParam(value = "current", defaultValue = "1") Integer current) {
+    // 根据用户查询
+    Page<Blog> page = blogService.query()
+            .orderByDesc("liked")
+            .page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
+    // 获取当前页数据
+    List<Blog> records = page.getRecords();
+    // 查询用户
+    records.forEach(blog ->{
+        Long userId = blog.getUserId();
+        User user = userService.getById(userId);
+        blog.setName(user.getNickName());
+        blog.setIcon(user.getIcon());
+
+        isBlogBeLike(blog);
+    });
+    return Result.ok(records);
+}
+```
+
+
+
+
+
+### 4.6.2 点赞排行榜（在 blog 展示给该 blog 点赞的用户）
+
+![image-20240613154136174](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613154136174.png)
+
+因为是要按点赞时间排序，所以改用zset
+
+
+
+```java
+package com.hmdp.controller;
+
+
+import cn.hutool.core.util.BooleanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hmdp.dto.Result;
+import com.hmdp.dto.UserDTO;
+import com.hmdp.entity.Blog;
+import com.hmdp.entity.User;
+import com.hmdp.service.IBlogService;
+import com.hmdp.service.IUserService;
+import com.hmdp.utils.SystemConstants;
+import com.hmdp.utils.UserHolder;
+import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
+
+import javax.annotation.Resource;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * <p>
+ * 前端控制器
+ * </p>
+ *
+ * @author 虎哥
+ * @since 2021-12-22
+ */
+@RestController
+@RequestMapping("/blog")
+public class BlogController {
+
+    private static final String LIKE_KEY = "blog:like:";
+
+    @Resource
+    private IBlogService blogService;
+    @Resource
+    private IUserService userService;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @PostMapping
+    public Result saveBlog(@RequestBody Blog blog) {
+        // 获取登录用户
+        UserDTO user = UserHolder.getUser();
+        blog.setUserId(user.getId());
+        // 保存探店博文
+        blogService.save(blog);
+        // 返回id
+        return Result.ok(blog.getId());
+    }
+
+    @PutMapping("/like/{id}")
+    public Result likeBlog(@PathVariable("id") Long id) {
+        String key = LIKE_KEY + id;
+        //1. 获取当前登录用户
+        Long userId = UserHolder.getUser().getId();
+
+        //2. 判断当前用户是否点赞
+        Double member = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+
+        //3. 如果未点赞
+        if(member == null) {
+            //3.1 数据库点赞数+1
+            LambdaUpdateWrapper<Blog> lambdaUpdateWrapper =  new LambdaUpdateWrapper<>();
+            lambdaUpdateWrapper.eq(Blog::getId, id);
+            Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+            blog.setLiked(blog.getLiked() + 1);
+
+            boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+            if(BooleanUtil.isTrue(ifSuccess)){
+                //3.2 保存用户到redis集合
+                stringRedisTemplate.opsForZSet().add(LIKE_KEY + id, userId.toString(), System.currentTimeMillis());
+            }
+        }else {
+            //4. 如果已点赞，取消点赞
+            //4.1 数据库点赞数-1
+            LambdaUpdateWrapper<Blog> lambdaUpdateWrapper = new LambdaUpdateWrapper<>();
+            lambdaUpdateWrapper.eq(Blog::getId, id);
+            Blog blog = blogService.getOne(lambdaUpdateWrapper);
+
+            blog.setLiked(blog.getLiked() - 1);
+
+            boolean ifSuccess = blogService.update(blog, lambdaUpdateWrapper);
+
+            if (BooleanUtil.isTrue(ifSuccess)) {
+                //4.2 redis集合删除用户
+                stringRedisTemplate.opsForZSet().remove(LIKE_KEY + id, userId.toString());
+            }
+
+        }
+        return Result.ok();
+    }
+
+    @GetMapping("/of/me")
+    public Result queryMyBlog(@RequestParam(value = "current", defaultValue = "1") Integer current) {
+        // 获取登录用户
+        UserDTO user = UserHolder.getUser();
+        // 根据用户查询
+        Page<Blog> page = blogService.query()
+                .eq("user_id", user.getId()).page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
+        // 获取当前页数据
+        List<Blog> records = page.getRecords();
+        return Result.ok(records);
+    }
+
+    @GetMapping("/hot")
+    public Result queryHotBlog(@RequestParam(value = "current", defaultValue = "1") Integer current) {
+        // 根据用户查询
+        Page<Blog> page = blogService.query()
+                .orderByDesc("liked")
+                .page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
+        // 获取当前页数据
+        List<Blog> records = page.getRecords();
+        // 查询用户
+        records.forEach(blog ->{
+            Long userId = blog.getUserId();
+            User user = userService.getById(userId);
+            blog.setName(user.getNickName());
+            blog.setIcon(user.getIcon());
+
+            isBlogBeLike(blog);
+        });
+        return Result.ok(records);
+    }
+
+
+    @Transactional
+    @GetMapping("/{id}")
+    public Result queryBlogById(@PathVariable Long id){
+        LambdaQueryWrapper<Blog> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Blog::getId, id);
+        Blog blog = blogService.getOne(lambdaQueryWrapper);
+
+        if (blog == null) {
+            return Result.fail("博文不存在");
+        }
+
+        User user = userService.getById(blog.getUserId());
+        blog.setName(user.getNickName());
+        blog.setIcon(user.getIcon());
+
+        isBlogBeLike(blog);
+
+        return Result.ok(blog);
+    }
+
+    private void isBlogBeLike(Blog blog) {
+        String key = LIKE_KEY + blog.getId();
+        //1. 获取当前登录用户
+        UserDTO user = UserHolder.getUser();
+
+        if(user == null){
+            return;
+        }
+
+        Long userId = user.getId();
+
+        //2. 判断当前用户是否点赞
+        Double member = stringRedisTemplate.opsForZSet().score(key, userId.toString());
+
+        blog.setIsLike(member != null);
+    }
+
+
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable Long id){
+        Set<String> range = stringRedisTemplate.opsForZSet().range(LIKE_KEY + id, 0, 4);
+
+        if (range == null || range.isEmpty()) {
+            return Result.ok();
+        }
+
+        List<Long> collect = range.stream().map(Long::valueOf).collect(Collectors.toList());
+
+
+        //因为直接用listById查的sql用的是in，导致用户是按id排序展示的，所以用query拼接字符串自定义排序
+        //where id in (5, 1) order by field(id, 5 ,1)
+        List<User> users = userService.query().
+                in("id", collect).
+                last("ORDER BY FIELD(id," +
+                        collect.stream().map(Object::toString).collect(Collectors.joining(","))
+                        + ")")
+                .list();
+
+        List<UserDTO> userDTOS = new ArrayList<>();
+
+        for(User user : users){
+            UserDTO userDTO = new UserDTO();
+            BeanUtils.copyProperties(user, userDTO);
+
+            userDTOS.add(userDTO);
+        }
+
+        return Result.ok(userDTOS);
+    }
+
+}
+```
+
+
+
+注意到 queryBlogLikes 方法中的
+
+```java
+List<Long> collect = range.stream().map(Long::valueOf).collect(Collectors.toList());
+
+
+//因为直接用listById查的sql用的是in，导致用户是按id排序展示的，所以用query拼接字符串自定义排序
+//where id in (5, 1) order by field(id, 5 ,1)
+List<User> users = userService.query().
+        in("id", collect).
+        last("ORDER BY FIELD(id," +
+                collect.stream().map(Object::toString).collect(Collectors.joining(","))
+                + ")")
+        .list();
+```
+
+需要自定义sql
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
