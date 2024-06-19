@@ -15,12 +15,18 @@ import com.hmdp.utils.SystemConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -217,14 +223,69 @@ public class ShopController {
     @GetMapping("/of/type")
     public Result queryShopByType(
             @RequestParam("typeId") Integer typeId,
-            @RequestParam(value = "current", defaultValue = "1") Integer current
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "x", required = false) Double x,
+            @RequestParam(value = "y", required = false) Double y
+
     ) {
-        // 根据类型分页查询
-        Page<Shop> page = shopService.query()
-                .eq("type_id", typeId)
-                .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
-        // 返回数据
-        return Result.ok(page.getRecords());
+        //如果前端没有传xy，用默认查询
+        if(x == null || y == null) {
+            // 根据类型分页查询
+            Page<Shop> page = shopService.query()
+                    .eq("type_id", typeId)
+                    .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+            // 返回数据
+            return Result.ok(page.getRecords());
+        }
+
+        //算出分页查询需要的from（从哪开始）和end（从哪结束）
+        int from = (current - 1) * SystemConstants.DEFAULT_PAGE_SIZE;
+        int end = current * SystemConstants.DEFAULT_PAGE_SIZE;
+
+        //从redis中查出5公里内的商铺
+        //GEOSEARCH key BYLONLAT x y BYRADIUS 5 km WITHDISTANCE
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results = stringRedisTemplate.opsForGeo()
+                .search(
+                        "shop:geo:" + typeId,
+                        GeoReference.fromCoordinate(x, y),
+                        new Distance(5000),
+                        RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs().includeDistance().limit(end)
+                );
+
+        //判断是否为空
+        if(results == null){
+            return Result.ok(Collections.emptyList());
+        }
+
+
+        List<GeoResult<RedisGeoCommands.GeoLocation<String>>> content = results.getContent();
+        List<Long> ids = new ArrayList<>(content.size());
+        Map<String, Distance> distanceMap = new HashMap<>(content.size());
+
+        //查出的results如果长度小于from，意味着已经查到底了，直接返回就行
+        if(content.size() <= from){
+            return Result.ok(Collections.emptyList());
+        }
+
+        //如果正常就把result里的东西拿出塞进ids和shopList
+        content.stream().skip(from).forEach(result -> {
+            String shopId = result.getContent().getName();
+            ids.add(Long.valueOf(shopId));
+
+            Distance distance = result.getDistance();
+            distanceMap.put(shopId, distance);
+        });
+
+        //按距离排好的顺序查询并设置好距离返回
+        List<Shop> shopList = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            Shop shop = shopService.getById(id);
+            shop.setDistance(distanceMap.get(id.toString()).getValue());
+
+            shopList.add(shop);
+        }
+
+        return Result.ok(shopList);
     }
 
     /**

@@ -2979,7 +2979,9 @@ Stream 数据类型是可以被多个消费者、同一个消费者重复读取�
 
 1. 
 
-![image-20240613094943659](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240613094943659.png)
+![image-20240619134800691](./assets/image-20240619134800691.png)
+
+要先创建 key 才能创建相应的组
 
 
 
@@ -3776,6 +3778,355 @@ List<User> users = userService.query().
 
 
 
+## 4.7 好友关注
+
+### 4.7.1 关注与取关
+
+![image-20240614101340602](./assets/image-20240614101340602.png)
+
+![image-20240614101731281](./assets/image-20240614101731281.png)
+
+
+
+```java
+package com.hmdp.controller;
+
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hmdp.dto.Result;
+import com.hmdp.entity.Follow;
+import com.hmdp.service.IFollowService;
+import com.hmdp.utils.UserHolder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * <p>
+ *  前端控制器
+ * </p>
+ *
+ * @author 虎哥
+ * @since 2021-12-22
+ */
+@RestController
+@RequestMapping("/follow")
+public class FollowController {
+
+    @Autowired
+    private IFollowService followService;
+
+    @PutMapping("/{id}/{isFollower}")
+    public Result follower(@PathVariable Long id, @PathVariable Boolean isFollower){
+        Long userId = UserHolder.getUser().getId();
+
+        if(isFollower){
+            Follow follow = new Follow();
+            follow.setUserId(userId);
+            follow.setFollowUserId(id);
+
+            followService.save(follow);
+
+        }else {
+            LambdaQueryWrapper<Follow> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper.eq(Follow::getUserId,userId);
+            lambdaQueryWrapper.eq(Follow::getFollowUserId,id);
+
+            followService.remove(lambdaQueryWrapper);
+
+        }
+
+        return Result.ok();
+    }
+
+
+    @GetMapping("/or/not/{id}")
+    public Result follower(@PathVariable Long id){
+        Long userId = UserHolder.getUser().getId();
+
+        LambdaQueryWrapper<Follow> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Follow::getUserId,userId);
+        lambdaQueryWrapper.eq(Follow::getFollowUserId,id);
+
+        Follow one = followService.getOne(lambdaQueryWrapper);
+
+        if(one == null){
+            return Result.ok(false);
+        }
+
+        return Result.ok(true);
+    }
+}
+```
+
+
+
+
+
+### 4.7.2 共同关注
+
+![image-20240614105040102](./assets/image-20240614105040102.png)
+
+```java
+@PutMapping("/{id}/{isFollower}")
+public Result follower(@PathVariable Long id, @PathVariable Boolean isFollower){
+    Long userId = UserHolder.getUser().getId();
+
+    if(isFollower){
+        Follow follow = new Follow();
+        follow.setUserId(userId);
+        follow.setFollowUserId(id);
+
+        boolean isSuccess = followService.save(follow);
+
+        if(isSuccess){
+            stringRedisTemplate.opsForSet().add("follow:"+userId, id.toString());
+        }
+
+    }else {
+        LambdaQueryWrapper<Follow> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Follow::getUserId,userId);
+        lambdaQueryWrapper.eq(Follow::getFollowUserId,id);
+
+        boolean ifSuccess = followService.remove(lambdaQueryWrapper);
+
+        if(ifSuccess){
+            stringRedisTemplate.opsForSet().remove("follow:"+userId, id.toString());
+        }
+
+    }
+
+    return Result.ok();
+}
+```
+
+```java
+@GetMapping("/common/{id}")
+public Result followCommons(@PathVariable Long id){
+    Long userId = UserHolder.getUser().getId();
+
+    //求set交集
+    Set<String> intersect = stringRedisTemplate.opsForSet().intersect("follow:" + userId, "follow:" + id);
+
+    //解析出Long型id
+    if (intersect == null || intersect.isEmpty()) {
+        return Result.ok(Collections.emptyList());
+    }
+
+    List<Long> collect = intersect.stream().map(Long::valueOf).collect(Collectors.toList());
+
+    List<User> users = userService.listByIds(collect);
+    List<UserDTO> userDTOS = new ArrayList<>();
+
+    for (User user : users) {
+        UserDTO userDTO = new UserDTO();
+        BeanUtils.copyProperties(user, userDTO);
+        userDTOS.add(userDTO);
+    }
+
+    return Result.ok(userDTOS);
+}
+```
+
+将关注信息以 （key = userId ， value = userFollowId）的形式存进 redis
+
+查找共同用户的时候就查交集
+
+```java
+stringRedisTemplate.opsForSet().intersect("follow:" + userId, "follow:" + id);
+```
+
+
+
+
+
+### 4.7.3 关注推送
+
+#### 4.7.3.1 Feed 流实现方案推送
+
+![image-20240614151040039](./assets/image-20240614151040039.png)
+
+![image-20240614151358227](./assets/image-20240614151358227.png)
+
+![image-20240614151409998](./assets/image-20240614151409998.png)
+
+
+
+![image-20240614151953535](./assets/image-20240614151953535.png)
+
+优点：节省内存空间
+
+缺点：每次读取都要拉一次，延迟高
+
+
+
+![image-20240614152124555](./assets/image-20240614152124555.png)
+
+优点：延迟低
+
+缺点：一个消息要写n遍，内存占用高
+
+
+
+![image-20240614152531791](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240614152531791.png)
+
+普通up采用推模式
+
+大v对活跃粉丝使用推模式，对普通粉丝使用拉模式
+
+
+
+![image-20240614152651411](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240614152651411.png)
+
+
+
+#### 4.7.3.2 基于推模式实现关注推送功能
+
+![image-20240614153558295](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240614153558295.png)
+
+![image-20240614153954036](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240614153954036.png)
+
+会导致重复读取
+
+
+
+![image-20240614154440410](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240614154440410.png)
+
+所以虽然 list 和 sortedset 都能实现分页查询，但是只有 sortedset 能实现滚动分页查询
+
+
+
+发布笔记推送到粉丝收件箱（基于 zset 实现）：
+
+```java
+@PostMapping
+public Result saveBlog(@RequestBody Blog blog) {
+    // 获取登录用户
+    UserDTO user = UserHolder.getUser();
+    blog.setUserId(user.getId());
+    // 保存探店博文
+    boolean ifSuccess = blogService.save(blog);
+
+    if(BooleanUtil.isFalse(ifSuccess)){
+        return Result.fail("保存失败");
+    }
+
+
+    //查询所有粉丝
+    LambdaQueryWrapper<Follow> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+    lambdaQueryWrapper.eq(Follow::getFollowUserId, user.getId());
+    List<Follow> fanList = followService.list(lambdaQueryWrapper);
+
+    if(fanList == null || fanList.isEmpty()){
+        return Result.ok(blog.getId());
+    }
+
+    //将blog推给所有粉丝
+    for(Follow follow : fanList){
+        String key = "feed:" + follow.getUserId();
+
+        stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
+    }
+
+    // 返回id
+    return Result.ok(blog.getId());
+}
+```
+
+
+
+![image-20240618100508975](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240618100508975.png)
+
+
+
+以下用的都是闭区间
+
+ZREVRANGEBYSCORE --> 按 分数 降序 查找
+
+keyName --> set 名称
+
+max min --> 查找的分数最大最小值
+
+WITHSCORES --> 是否带着分数查找出来
+
+OFFSET --> 偏移量（0就是从 max 开始，1就是从 max 后一个开始，以此类推）
+
+COUNT --> 查几条
+
+```redis
+ZREVRANGEBYSCORE keyName max min [WITHSCORES] [LIMIT OFFSET COUNT]
+```
+
+一般来说 min 、count 是写死的
+
+max 取上次的最小值（如果是第一次取最大值-当前时间戳）
+
+offset 取上次最小值的个数（如果写死为1，可能会导致存在多个最小时间戳相同的数据，只跳过一个就会导致重复读的问题）（如果第一次，取0）
+
+
+
+**滚动查询业务代码：**
+
+```java
+@GetMapping("/of/follow")
+public Result queryBlogOfFollow(@RequestParam("lastId") Long max, @RequestParam(value = "offset", defaultValue = "0") Integer offset){
+    Long userId = UserHolder.getUser().getId();
+
+    //1. 查询收件箱
+    String key = "feed:" + userId;
+    Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
+            .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
+
+    if(typedTuples == null || typedTuples.isEmpty()){
+        return Result.ok();
+    }
+
+    //2. 解析数据：blogId、minTime、offset
+    List<Long> ids = new ArrayList<>(typedTuples.size());
+    long minTime = 0L;
+    int offsetGetFromRedis = 1;
+    for(ZSetOperations.TypedTuple<String> typedTuple : typedTuples){
+        String blogId = typedTuple.getValue();
+        if (blogId != null) {
+            ids.add(Long.valueOf(blogId));
+        }
+
+        long time = Objects.requireNonNull(typedTuple.getScore()).longValue();
+        if(time == minTime){
+            offsetGetFromRedis += 1;
+        }else {
+            minTime = time;
+            offsetGetFromRedis = 1;
+        }
+
+    }
+
+    //3. 根据id查blog
+    //List<Blog> blogs = blogService.listByIds(ids);不能这样查
+    //因为这样用的是in查询，顺序乱了
+    List<Blog> blogs = new ArrayList<>(ids.size());
+    for(Long id : ids){
+        Blog blog = blogService.getById(id);
+
+        if(blog != null){
+            User user = userService.getById(blog.getUserId());
+            blog.setName(user.getNickName());
+            blog.setIcon(user.getIcon());
+
+            isBlogBeLike(blog);
+
+            blogs.add(blog);
+        }
+    }
+
+    //4. 封装返回
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setList(blogs);
+    scrollResult.setOffset(offsetGetFromRedis);
+    scrollResult.setMinTime(minTime);
+
+    return Result.ok(scrollResult);
+}
+```
 
 
 
@@ -3783,6 +4134,189 @@ List<User> users = userService.query().
 
 
 
+## 4.8 附近商户
+
+### 4.8.1 GEO 数据结构
+
+![image-20240618142746125](./assets/image-20240618142746125.png)
+
+![image-20240618143336205](./assets/image-20240618143336205.png)
+
+![image-20240618143405830](./assets/image-20240618143405830.png)
+
+![image-20240618143458361](./assets/image-20240618143458361.png)
+
+GEODIST 默认单位是 m ，可以指定单位
+
+
+
+![image-20240618144833350](./assets/image-20240618144833350.png)
+
+默认升序
+
+
+
+
+
+### 4.8.2 实现基于 GEO 的附近商铺功能
+
+![image-20240618145108351](./assets/image-20240618145108351.png)
+
+![image-20240618145759603](./assets/image-20240618145759603.png)
+
+
+
+添加商铺信息进 redis ：
+
+```java
+@Test
+public void loadShopData(){
+    //1. 获取所有商铺信息
+    List<Shop> shopList = shopService.list();
+
+    //2. 根据key：商铺类型，value：所属商铺list，转成map
+    Map<Long, List<Shop>> shopMap = shopList
+            .stream().collect(
+                    Collectors.groupingBy(Shop::getTypeId)
+            );
+
+    //3. 存进redis
+    for(Map.Entry<Long, List<Shop>> entry : shopMap.entrySet()){
+        Long typeId = entry.getKey();
+        String key = "shop:geo:" + typeId;
+
+        List<Shop> value = entry.getValue();
+        List<RedisGeoCommands.GeoLocation<String>> locations = new ArrayList<>(shopList.size());
+
+        //这样就之用向redis发一次请求
+        for (Shop shop : value) {
+            //stringRedisTemplate.opsForGeo().add(key, new Point(shop.getX(), shop.getY()), shop.getId().toString());
+            locations.add(new RedisGeoCommands.GeoLocation<>(
+                    shop.getId().toString(),
+                    new Point(shop.getX(), shop.getY())
+            ));
+        }
+
+        stringRedisTemplate.opsForGeo().add(key, locations);
+    }
+
+
+}
+```
+
+
+
+![image-20240618152913572](./assets/image-20240618152913572.png)
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.data</groupId>
+                    <artifactId>spring-aop-redis</artifactId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>lettuce-core</artifactId>
+                    <groupId>io.lettuce</groupId>
+                </exclusion>
+            </exclusions>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework.data</groupId>
+        <artifactId>spring-data-redis</artifactId>
+        <version>2.6.2</version>
+    </dependency>
+
+    <dependency>
+        <artifactId>lettuce-core</artifactId>
+        <groupId>io.lettuce</groupId>
+        <version>6.1.6.RELEASE</version>
+    </dependency>
+```
+
+
+
+**业务代码：**
+
+```java
+/**
+ * 根据商铺类型分页查询商铺信息
+ * @param typeId 商铺类型
+ * @param current 页码
+ * @return 商铺列表
+ */
+@GetMapping("/of/type")
+public Result queryShopByType(
+        @RequestParam("typeId") Integer typeId,
+        @RequestParam(value = "current", defaultValue = "1") Integer current,
+        @RequestParam(value = "x", required = false) Double x,
+        @RequestParam(value = "y", required = false) Double y
+
+) {
+    //如果前端没有传xy，用默认查询
+    if(x == null || y == null) {
+        // 根据类型分页查询
+        Page<Shop> page = shopService.query()
+                .eq("type_id", typeId)
+                .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+        // 返回数据
+        return Result.ok(page.getRecords());
+    }
+
+    //算出分页查询需要的from（从哪开始）和end（从哪结束）
+    int from = (current - 1) * SystemConstants.DEFAULT_PAGE_SIZE;
+    int end = current * SystemConstants.DEFAULT_PAGE_SIZE;
+
+    //从redis中查出5公里内的商铺
+    //GEOSEARCH key BYLONLAT x y BYRADIUS 5 km WITHDISTANCE
+    GeoResults<RedisGeoCommands.GeoLocation<String>> results = stringRedisTemplate.opsForGeo()
+            .search(
+                    "shop:geo:" + typeId,
+                    GeoReference.fromCoordinate(x, y),
+                    new Distance(5000),
+                    RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs().includeDistance().limit(end)
+            );
+
+    //判断是否为空
+    if(results == null){
+        return Result.ok(Collections.emptyList());
+    }
+
+
+    List<GeoResult<RedisGeoCommands.GeoLocation<String>>> content = results.getContent();
+    List<Long> ids = new ArrayList<>(content.size());
+    Map<String, Distance> distanceMap = new HashMap<>(content.size());
+
+    //查出的results如果长度小于from，意味着已经查到底了，直接返回就行
+    if(content.size() <= from){
+        return Result.ok(Collections.emptyList());
+    }
+
+    //如果正常就把result里的东西拿出塞进ids和shopList
+    content.stream().skip(from).forEach(result -> {
+        String shopId = result.getContent().getName();
+        ids.add(Long.valueOf(shopId));
+
+        Distance distance = result.getDistance();
+        distanceMap.put(shopId, distance);
+    });
+
+    //按距离排好的顺序查询并设置好距离返回
+    List<Shop> shopList = new ArrayList<>(ids.size());
+    for (Long id : ids) {
+        Shop shop = shopService.getById(id);
+        shop.setDistance(distanceMap.get(id.toString()).getValue());
+
+        shopList.add(shop);
+    }
+
+    return Result.ok(shopList);
+}
+```
 
 
 
@@ -3790,37 +4324,128 @@ List<User> users = userService.query().
 
 
 
+## 4.9 用户签到
+
+### 4.9.1 Redis 的 BitMap 用法
+
+![image-20240619141315291](./assets/image-20240619141315291.png)
+
+![image-20240619141518383](./assets/image-20240619141518383.png)
+
+![image-20240619141806535](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240619141806535.png)
+
+
+
+### 4.9.2 功能实现
+
+![image-20240619143307366](./assets/image-20240619143307366.png)
+
+
+
+```java
+@PostMapping("/sign")
+public Result sign(){
+    Long userId = UserHolder.getUser().getId();
+
+    //获取日期
+    LocalDateTime now = LocalDateTime.now();
+    String yyyyMM = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+    String key = "sign:" + userId + yyyyMM;
+
+    int dayOfMonth = now.getDayOfMonth() - 1;
+
+    stringRedisTemplate.opsForValue().setBit(key, dayOfMonth, true);
+
+    return Result.ok();
+}
+```
 
 
 
 
 
+### 4.9.3 签到统计
+
+![image-20240619145050426](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240619145050426.png)
+
+![image-20240619145058216](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240619145058216.png)
+
+![image-20240619150751157](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240619150751157.png)
+
+```redis
+BITFIELD sign:userId:yyyMM GET u今天几号 0
+```
+
+```java
+//获取本月截止今天为止的所有签到记录，返回的是十进制
+//BITFIELD sign:userId:yyyMM GET u今天几号 0
+List<Long> results = stringRedisTemplate.opsForValue().bitField(
+        key,
+        BitFieldSubCommands.create()
+                .get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth)).valueAt(0),
+
+        );
+```
 
 
 
 
 
+## 4.10 UV（独立访客量）统计
+
+![image-20240619154003751](https://raw.githubusercontent.com/normalSp/imgSave/master/image-20240619154003751.png)
+
+![image-20240619154753441](./assets/image-20240619154753441.png)
+
+![image-20240619155356893](./assets/image-20240619155356893.png)
+
+![image-20240619155417613](./assets/image-20240619155417613.png)
+
+重复值在 pfcount 的时候忽略，所以天然的适合做唯一性检验
 
 
 
+### 4.10.1 实现 UV（百万级别数据量）统计
+
+```java
+@Test
+public void testHyperLoglog(){
+    String[] users = new String[1000];
+
+    int index = 0;
+    for(int i = 0; i < 1000000; i++){
+        users[index++] = "user_" + i;
+
+        if(i % 1000 == 999){
+            index = 0;
+            stringRedisTemplate.opsForHyperLogLog().add("hll1", users);
+        }
+    }
+
+    Long size = stringRedisTemplate.opsForHyperLogLog().size("hll1");
+    System.out.println("size = " + size);
+
+}
+```
 
 
 
+结果：
+
+![image-20240619162156466](./assets/image-20240619162156466.png)
+
+误差：0.25%
 
 
 
+![image-20240619162016479](./assets/image-20240619162016479.png)
 
+![image-20240619162049801](./assets/image-20240619162049801.png)
 
+前后内存占用：
 
-
-
-
-
-
-
-
-
-
+（565508 - 577944）/ 1024 = 12.14kb
 
 
 

@@ -16,12 +16,16 @@ import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -163,4 +167,78 @@ public class UserController {
         // 返回
         return Result.ok(info);
     }
+
+
+    @GetMapping("/{id}")
+    public Result queryUserById(@PathVariable("id") Long userId){
+        // 查询详情
+        User user = userService.getById(userId);
+        if (user == null) {
+            return Result.ok();
+        }
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        // 返回
+        return Result.ok(userDTO);
+    }
+
+
+    @PostMapping("/sign")
+    public Result sign(){
+        Long userId = UserHolder.getUser().getId();
+
+        //获取日期
+        LocalDateTime now = LocalDateTime.now();
+        String yyyyMM = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        String key = "sign:" + userId + yyyyMM;
+
+        int dayOfMonth = now.getDayOfMonth() - 1;
+
+        stringRedisTemplate.opsForValue().setBit(key, dayOfMonth, true);
+
+        return Result.ok();
+    }
+
+
+    @GetMapping("/sign/count")
+    public Result singCount(){
+        Long userId = UserHolder.getUser().getId();
+
+        //获取日期
+        LocalDateTime now = LocalDateTime.now();
+        String yyyyMM = now.format(DateTimeFormatter.ofPattern(":yyyyMM"));
+
+        String key = "sign:" + userId + yyyyMM;
+
+        int dayOfMonth = now.getDayOfMonth() - 1;
+
+        //获取本月截止今天为止的所有签到记录，返回的是十进制
+        //BITFIELD sign:userId:yyyMM GET u今天几号 0
+        //因为这个命令是可以同时存在多个子命令（get、set。。）（所以返回一个list包含以上子命令的所有结果）
+        List<Long> results = stringRedisTemplate.opsForValue().bitField(
+                key,
+                BitFieldSubCommands.create()
+                        .get(BitFieldSubCommands.BitFieldType.unsigned(dayOfMonth)).valueAt(0)
+
+                );
+        if (results == null || results.isEmpty()) {
+            return Result.ok(0);
+        }
+
+        //获取get子命令的结果
+        Long num = results.get(0);
+        if(num == null || num == 0){
+            return Result.ok(0);
+        }
+
+        //将结果和1按位做与运算，count就是本月连续签到数
+        int count = 0;
+        for(; (num & 1) == 1; count++){
+            //num无符号位右移一位
+            num = num >>> 1;
+        }
+
+        return Result.ok(count);
+    }
+
 }
